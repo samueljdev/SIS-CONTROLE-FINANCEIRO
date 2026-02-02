@@ -90,24 +90,23 @@ pipeline {
                         string(credentialsId: 'DB_PASSWORD', variable: 'DB_PASSWORD')
                     ]) {
                         sh """
-                            # Garante que o banco está rodando
-                            docker ps -q -f name=db-postgresql || docker compose up -d db-postgresql
+                            # Exporta variáveis para o docker compose
+                            export DB_USERNAME=\${DB_USERNAME}
+                            export DB_PASSWORD=\${DB_PASSWORD}
+                            export SPRING_PROFILES_ACTIVE=${params.ENVIRONMENT}
                             
-                            # Remove container antigo
+                            # Remove container antigo da aplicação
                             docker stop app-financeiro 2>/dev/null || true
                             docker rm app-financeiro 2>/dev/null || true
                             
-                            # Inicia nova versão
-                            docker run -d \\
-                                --name app-financeiro \\
-                                --network sis-controle-financeiro_network-new-financeiro \\
-                                -p 8089:8089 \\
-                                -e SPRING_PROFILES_ACTIVE=${params.ENVIRONMENT} \\
-                                -e DB_USERNAME=\${DB_USERNAME} \\
-                                -e DB_PASSWORD=\${DB_PASSWORD} \\
-                                ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            # Recria apenas o container da aplicação
+                            docker compose up -d --no-deps app-financeiro
+                            
+                            # Aguarda a aplicação iniciar
+                            sleep 10
                             
                             echo "Application deployed: http://localhost:8089"
+                            echo "Health check: http://localhost:8089/actuator/health"
                         """
                     }
                 }
